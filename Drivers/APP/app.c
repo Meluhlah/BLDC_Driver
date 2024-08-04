@@ -19,7 +19,7 @@ void run_app(){
         if(sw_state){
         		TIM1->CCR1 = driver.pwmDutyCycle;
         		TIM1->CCR2 = driver.pwmDutyCycle;
-        		TIM1->CCR3 = driver.pwmDutyCycle;//test2
+        		TIM1->CCR3 = driver.pwmDutyCycle;//test4
         }
     }
 
