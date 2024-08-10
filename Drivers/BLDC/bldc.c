@@ -1,19 +1,113 @@
 #include "bldc.h"
+#include "tim.h"
 
 
-volatile bldc driver;
+volatile BLDC driver;
+volatile BLDC_CONFIG driver_conf;
 volatile bool_t bemf_flag = false;
 CONTROL_STATE_e motor_state = IDLE;
+MOTOR_EVENT_e motor_event = INIT;
+TIM_HandleTypeDef* PWM_TIMER = &PWM_TIM;
+volatile uint16_t bemf_counter;
+uint16_t alignSteps = 0;
+
+
+void set_phases_pwm_dc(uint8_t duty_cycle){
+
+	if(duty_cycle < 0)
+		duty_cycle = 0;
+	else if(duty_cycle > 100)
+		duty_cycle = 100;
+
+	driver.currentPwmDutyCycle = duty_cycle;
+
+	PWM_TIMER->Instance->CCR1 = duty_cycle;
+	PWM_TIMER->Instance->CCR2 = duty_cycle;
+	PWM_TIMER->Instance->CCR3 = duty_cycle;
+
+
+}
+
+void align_motor(){
+
+	all_ch_OFF();
+	PWM_TIMER->Instance->CCR1 = ALIGN_START_PWM;
+	PWM_TIMER->Instance->CCR2 = 100;	// Channel 2 LOW Side
+	PWM_TIMER->Instance->CCR3 = 100;	// Channel 3 LOW Side
+	CH_AH_ON();
+	CH_BL_ON();
+	CH_CL_ON();
+	HAL_TIM_Base_Start_IT(&htim14);
+
+	while(alignSteps > 0);	// TIM4 Callback
+
+	HAL_TIM_Base_Stop_IT(&htim14);
+	//all_ch_OFF();
+
+	set_phases_pwm_dc(10);
+
+	driver.current_step = 0;
+}
+
+void bldc_init(){
+	driver.vA = 0;
+	driver.vB = 0;
+	driver.vC = 0;
+
+	driver.prev_vA = 0;
+	driver.prev_vB = 0;
+	driver.prev_vC = 0;
+
+	driver.iA = 0;
+	driver.iB = 0;
+	driver.iC = 0;
+
+	driver.vinRef = 0;
+
+	driver.current_step = 0;
+	driver.next_step = 0;
+	driver.prev_step = 0;
+
+	driver.currentPwmDutyCycle = 0;
+	driver.rpmValue = 0.0f;
+
+
+	driver_conf.bemf_threshold = BEMF_THRESHOLD;
+	driver_conf.align_steps = ALIGN_STEPS;
+	driver_conf.pole_pairs = 7;
+
+
+
+	bemf_counter = 0;
+	alignSteps = ALIGN_STEPS;
+}
+
+
+/*	REMOVE NUMBERS FROM FUNCTION, USE DEFINES */
 
 void rampUp(){
     uint16_t i = 5000;
-    motor_state = RAMPUP;
-    while(i > 100){
-        delayMicro(i);
-        trapezoidal_commute(driver.current_step);
+    motor_state = RAMP;
+    uint8_t steps_counter = 0;
+    while(i > 100 && motor_event != BEMF_SENSING) // && motor_state != AUTO_COMMUTATION){
+    {
+
+    	if(i <= 2000)
+    		motor_event = BEMF_COUNTING;
+
+    	if(bemf_counter >= BEMF_DETECTED_THRESHOLD){
+    		motor_event = BEMF_SENSING;
+    		motor_state = AUTO_COMMUTATION;
+    	}
+    	delayMicro(i);
+        trapezoidal_commute();
         i-=20;
+        ++steps_counter;
+        if(steps_counter == 25){
+        	set_phases_pwm_dc(driver.currentPwmDutyCycle + 2);
+        	steps_counter = 0;
+        }
     }
-    motor_state = BEMF_SENSING;
 
 }
 
@@ -75,9 +169,19 @@ bool_t bemf_sensing(){
 
 void trapezoidal_commute(){
 
+	static uint32_t start_time = 0;
+	static uint32_t end_time = 0;
+
     switch(driver.current_step){
         case 0:
+        	if(motor_state == AUTO_COMMUTATION){
+
+        		__HAL_TIM_SET_COUNTER(&htim17, 0);
+        		start_time = __HAL_TIM_GET_COUNTER(&htim17);
+
+        	}
             commutation_step1();
+
             break;
         case 1:
             commutation_step2();
@@ -92,6 +196,12 @@ void trapezoidal_commute(){
             commutation_step5();
             break;
         case 5:
+
+        	if(motor_state == AUTO_COMMUTATION){
+        		end_time = __HAL_TIM_GET_COUNTER(&htim17);
+        		get_rpm(start_time, end_time);
+        	}
+
             commutation_step0();
             break;
         default:
@@ -100,6 +210,19 @@ void trapezoidal_commute(){
     }
 }
 
+
+void get_rpm(uint32_t start_time, uint32_t end_time){
+	uint32_t elapsed_time = end_time - start_time;
+
+	if(elapsed_time > 0){
+
+		float elapsed_time_sec = elapsed_time / 1000000.0f;
+		float electrical_freq = 1.0f / elapsed_time_sec;
+		driver.rpmValue = (60.0f * electrical_freq) / driver_conf.pole_pairs;
+
+	}
+
+}
 
 void all_ch_OFF(){
     CH_A_OFF();

@@ -146,14 +146,6 @@ void MX_ADC1_Init(void)
   {
     Error_Handler();
   }
-
-  /** Configure Regular Channel
-  */
-  sConfig.Channel = ADC_CHANNEL_16;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
@@ -185,7 +177,6 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* adcHandle)
     PB1     ------> ADC1_IN9
     PB2     ------> ADC1_IN10
     PB10     ------> ADC1_IN11
-    PB12     ------> ADC1_IN16
     */
     GPIO_InitStruct.Pin = V_C_Pin|I_C_Pin|V_B_Pin|I_B_Pin
                           |V_A_Pin|I_A_Pin;
@@ -193,8 +184,7 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* adcHandle)
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = V_VIN_Pin|TEMP_C_Pin|TEMP_B_Pin|TEMP_A_Pin
-                          |POT_Pin;
+    GPIO_InitStruct.Pin = V_VIN_Pin|TEMP_C_Pin|TEMP_B_Pin|TEMP_A_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
@@ -248,13 +238,11 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* adcHandle)
     PB1     ------> ADC1_IN9
     PB2     ------> ADC1_IN10
     PB10     ------> ADC1_IN11
-    PB12     ------> ADC1_IN16
     */
     HAL_GPIO_DeInit(GPIOA, V_C_Pin|I_C_Pin|V_B_Pin|I_B_Pin
                           |V_A_Pin|I_A_Pin);
 
-    HAL_GPIO_DeInit(GPIOB, V_VIN_Pin|TEMP_C_Pin|TEMP_B_Pin|TEMP_A_Pin
-                          |POT_Pin);
+    HAL_GPIO_DeInit(GPIOB, V_VIN_Pin|TEMP_C_Pin|TEMP_B_Pin|TEMP_A_Pin);
 
     /* ADC1 DMA DeInit */
     HAL_DMA_DeInit(adcHandle->DMA_Handle);

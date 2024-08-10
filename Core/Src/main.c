@@ -21,6 +21,7 @@
 #include "adc.h"
 #include "dma.h"
 #include "tim.h"
+#include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -66,6 +67,7 @@ void SystemClock_Config(void);
   */
 int main(void)
 {
+
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -92,6 +94,9 @@ int main(void)
   MX_ADC1_Init();
   MX_TIM1_Init();
   MX_TIM17_Init();
+  MX_TIM14_Init();
+  MX_TIM16_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   run_app();
   /* USER CODE END 2 */

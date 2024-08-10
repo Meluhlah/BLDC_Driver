@@ -1,19 +1,39 @@
-#ifndef __APP
-#define _APP
+#ifndef __APP_H
+#define __APP_H
 
-#include "main.h"
+#include "usart.h"
 #include "tim.h"
 #include "adc.h"
 #include "bldc.h"
+#include <string.h>
 
-#define ADC_CHANNELS    (uint8_t)11
+#define ADC_CHANNELS    (uint8_t)10
+#define UART_NUM_BYTES		(uint8_t)28
 
-typedef uint8_t bool_t;
-#define true 1
-#define false 0
+#define true 	(uint8_t)1
+#define false 	(uint8_t)0
+
+typedef struct TX_BUFFER{
+
+	uint16_t phasesV[3];
+	uint16_t phasesI[3];
+	uint16_t vinRef;
+	uint16_t temperature[3];
+	uint16_t potValue;
+	uint16_t pwmDutyCycle;
+	uint16_t rpm;
+	uint16_t rotationDirection;
+
+} TX_BUFFER;
+
+extern TX_BUFFER tx_buffer;
+extern uint16_t dataToSend[UART_NUM_BYTES];
+extern const uint16_t tx_buffer_size;
+extern volatile uint16_t adc_buffer[ADC_CHANNELS];
 
 
 void run_app();
+void guiDataTransmit();
 
 
-#endif
+#endif	// __APP_H
