@@ -1,10 +1,10 @@
 #ifndef __BLDC_H
 #define __BLDC_H
 
+#include "tim.h"
+#include <stdint.h>
 
-#include "app.h"
-//#include "tim.h"
-//#include "adc.h"
+/*	---------------------- PWM Timer Defines ---------------------- */
 
 #define PWM_TIM         			htim1
 #define PHA_CHANNEL     			TIM_CHANNEL_1
@@ -12,125 +12,136 @@
 #define PHC_CHANNEL     			TIM_CHANNEL_3
 
 
-/* ------ MOTOR Alignment macros -------*/
+/*	---------------------- Motor Align Parameters ---------------------- */
 
 #define ALIGN_STEPS					(uint8_t)30
 #define ALIGN_MAX_PWM				(uint8_t)50	// Percentage
 #define ALIGN_START_PWM				(uint8_t)5	// Percentage
 #define ALIGN_PWM_INCREMENT			(uint8_t)((ALIGN_MAX_PWM - ALIGN_START_PWM) / ALIGN_STEPS)
+#define DELAY_TIMER     			htim17		// Used for Creating a rampup delay - Remove
 
+
+/*	---------------------- BEMF Parameters ---------------------- */
 
 #define BEMF_THRESHOLD  			(uint16_t)20
 #define BEMF_DETECTED_THRESHOLD		(uint8_t)30
 
 
-#define DELAY_TIMER     			htim17
+/*	---------------------- Typedefs Declarations ---------------------- */
 
+typedef struct Bldc_t Bldc_t;
+
+typedef struct Bldc_Handler_t Bldc_Handler_t;
+
+typedef struct BldcParamsConfig_t BldcParamsConfig_t;
 
 typedef uint8_t bool_t;
+#define false 0
+#define true 1
 
-
-typedef struct BLDC{
-    uint16_t vA;
-    uint16_t vB;
-    uint16_t vC;
-
-    uint16_t prev_vA;
-    uint16_t prev_vB;
-    uint16_t prev_vC;
-
-    uint16_t iA;
-    uint16_t iB;
-    uint16_t iC;
-
-    uint16_t vinRef;
-
-    uint8_t current_step;
-    uint8_t next_step;
-    uint8_t prev_step;
-
-    uint16_t currentPwmDutyCycle;
-    float rpmValue;
-
-
-}BLDC;
-
-
-/* Will be used for EEPROM Parameters	*/
-typedef struct BLDC_CONFIG{
-
-
-    uint16_t bemf_threshold;
-    uint16_t align_steps;
-    uint8_t pole_pairs;
-
-}BLDC_CONFIG;
-
-
+/*	---------------------- Enums Declarations ---------------------- */
 
 typedef enum {
     IDLE,
 	ALIGN,
     RAMP,
 	AUTO_COMMUTATION
-} CONTROL_STATE_e;
-
-
+} BldcState_e;
 
 typedef enum{
 	INIT,
 	BEMF_COUNTING,
 	BEMF_SENSING,
 	OVER_CURRENT
-} MOTOR_EVENT_e;
+} BldcEvent_e;
 
-extern volatile BLDC driver;
-extern volatile BLDC_CONFIG driver_conf;
+/*	---------------------- Variables Declaration ---------------------- */
 
+extern volatile Bldc_t* pDriver;
+extern volatile Bldc_Handler_t* pHandler;
+extern volatile BldcParamsConfig_t* pDriverConfig;
 extern volatile bool_t bemf_flag;
-extern TIM_HandleTypeDef* PWM_TIMER;
-//extern volatile bool_t tim14_flag;
-extern CONTROL_STATE_e motor_state;
-extern MOTOR_EVENT_e motor_event;
 extern volatile uint16_t bemf_counter;
-extern uint16_t alignSteps;
+extern uint16_t align_steps_temp;
+
+/*	---------------------- Initialization Methods ---------------------- */
+
+Bldc_t* bldc_init();
+Bldc_Handler_t* bldc_init_handler();
+BldcParamsConfig_t* bldc_init_config();
 
 
+/*	---------------------- Commutation Stages Methods ---------------------- */
 
-bool_t bemf_sensing();
-
-void bldc_init();
-
-void set_phases_pwm_dc(uint8_t duty_cycle);
-
-void align_motor();
-void rampUp();
-
-void trapezoidal_commute();
-void get_rpm(uint32_t start_time, uint32_t end_time);
+void bldc_commutation_step		(volatile Bldc_t* pDriver, uint8_t step);
+void bldc_trapezoidal_commute	(volatile Bldc_t* pDriver);
+void bldc_align_motor			(volatile Bldc_t* pDriver);
+void bldc_rampUp				(volatile Bldc_t* pDriver);
+bool_t bldc_bemf_sensing		(volatile Bldc_t* pDriver);
 
 
-void commutation_step0();
-void commutation_step1();
-void commutation_step2();
-void commutation_step3();
-void commutation_step4();
-void commutation_step5();
+/*	---------------------- Phases ON/OFF Methods ---------------------- */
 
+void bldc_phaseA_H_ON();
+void bldc_phaseA_L_ON();
+void bldc_phaseA_off();
 
-void CH_AH_ON();
-void CH_AL_ON();
-void CH_A_OFF();
+void bldc_phaseB_H_ON();
+void bldc_phaseB_L_ON();
+void bldc_phaseB_off();
 
-void CH_BH_ON();
-void CH_BL_ON();
-void CH_B_OFF();
+void bldc_phaseC_H_ON();
+void bldc_phaseC_L_ON();
+void bldc_phaseC_off();
 
-void CH_CH_ON();
-void CH_CL_ON();
-void CH_C_OFF();
+void bldc_all_phases_off();
 
-void all_ch_OFF();
+/* ------------------- Setters -----------------*/
+
+void bldc_set_vA		(volatile Bldc_t* pDriver, uint16_t value);
+void bldc_set_vB		(volatile Bldc_t* pDriver, uint16_t value);
+void bldc_set_vC		(volatile Bldc_t* pDriver, uint16_t value);
+
+void bldc_set_prev_vA	(volatile Bldc_t* pDriver, uint16_t value);
+void bldc_set_prev_vB	(volatile Bldc_t* pDriver, uint16_t value);
+void bldc_set_prev_vC	(volatile Bldc_t* pDriver, uint16_t value);
+
+void bldc_set_iA		(volatile Bldc_t* pDriver, uint16_t value);
+void bldc_set_iB		(volatile Bldc_t* pDriver, uint16_t value);
+void bldc_set_iC		(volatile Bldc_t* pDriver, uint16_t value);
+
+void bldc_set_vinRef	(volatile Bldc_t* pDriver, uint16_t value);
+
+void bldc_set_pwm		(volatile Bldc_t* pDriver, uint8_t duty_cycle);
+void bldc_set_commute_step		(volatile Bldc_t *pDriver, uint8_t step);
+void bldc_set_next_commute_step	(volatile Bldc_t *pDriver, uint8_t step);
+
+void bldc_set_state  (volatile Bldc_Handler_t* pHandler, BldcState_e state);
+void bldc_set_event  (volatile Bldc_Handler_t* pHandler, BldcEvent_e event);
+
+/* ------------------- Getters -----------------*/
+uint16_t bldc_get_vA		(volatile Bldc_t* pDriver);
+uint16_t bldc_get_vB		(volatile Bldc_t* pDriver);
+uint16_t bldc_get_vC		(volatile Bldc_t* pDriver);
+
+uint16_t bldc_get_prev_vA	(volatile Bldc_t* pDriver);
+uint16_t bldc_get_prev_vB	(volatile Bldc_t* pDriver);
+uint16_t bldc_get_prev_vC	(volatile Bldc_t* pDriver);
+
+uint16_t bldc_get_iA		(volatile Bldc_t* pDriver);
+uint16_t bldc_get_iB		(volatile Bldc_t* pDriver);
+uint16_t bldc_get_iC		(volatile Bldc_t* pDriver);
+
+uint16_t bldc_get_vinRef	(volatile Bldc_t* pDriver);
+
+uint8_t bldc_get_pwm		(volatile Bldc_t* pDriver);
+float   bldc_get_rpm		(volatile Bldc_t* pDriver, uint32_t start_time, uint32_t end_time);
+
+BldcState_e bldc_get_state  (volatile Bldc_Handler_t* pHandler);
+BldcEvent_e bldc_get_event  (volatile Bldc_Handler_t* pHandler);
+
+uint16_t bldc_get_align_steps (volatile BldcParamsConfig_t* pDriverConfig);
+
 
 void delayMicro(uint16_t delay);
 

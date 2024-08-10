@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    stm32g0xx_ll_rcc.c
   * @author  MCD Application Team
-  * @brief   RCC LL module driver.
+  * @brief   RCC LL module driver->
   ******************************************************************************
   * @attention
   *

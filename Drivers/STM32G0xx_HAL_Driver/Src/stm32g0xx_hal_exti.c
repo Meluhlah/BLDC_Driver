@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    stm32g0xx_hal_exti.c
   * @author  MCD Application Team
-  * @brief   EXTI HAL module driver.
+  * @brief   EXTI HAL module driver->
   *          This file provides firmware functions to manage the following
   *          functionalities of the General Purpose Input/Output (EXTI) peripheral:
   *           + Initialization and de-initialization functions
@@ -24,7 +24,7 @@
                     ##### EXTI Peripheral features #####
   ==============================================================================
   [..]
-    (+) Each Exti line can be configured within this driver.
+    (+) Each Exti line can be configured within this driver->
 
     (+) Exti line can be configured in 3 different modes
         (++) Interrupt

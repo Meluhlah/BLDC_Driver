@@ -3,15 +3,13 @@
 
 #include "usart.h"
 #include "tim.h"
-#include "adc.h"
 #include "bldc.h"
 #include <string.h>
+#include "adc.h"
 
 #define ADC_CHANNELS    (uint8_t)10
 #define UART_NUM_BYTES		(uint8_t)28
 
-#define true 	(uint8_t)1
-#define false 	(uint8_t)0
 
 typedef struct TX_BUFFER{
 
@@ -33,7 +31,7 @@ extern volatile uint16_t adc_buffer[ADC_CHANNELS];
 
 
 void run_app();
-void guiDataTransmit();
+void guiDataTransmit(volatile Bldc_t* pDriver);
 
 
 #endif	// __APP_H

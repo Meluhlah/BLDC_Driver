@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    stm32g0xx_hal_tim.c
   * @author  MCD Application Team
-  * @brief   TIM HAL module driver.
+  * @brief   TIM HAL module driver->
   *          This file provides firmware functions to manage the following
   *          functionalities of the Timer (TIM) peripheral:
   *           + TIM Time Base Initialization

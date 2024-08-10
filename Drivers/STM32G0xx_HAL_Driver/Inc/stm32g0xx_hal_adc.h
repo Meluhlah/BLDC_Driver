@@ -1444,7 +1444,7 @@ typedef  void (*pADC_CallbackTypeDef)(ADC_HandleTypeDef *hadc); /*!< pointer to 
 
 /**
   * @brief  Helper macro to determine whether the selected channel
-  *         corresponds to literal definitions of driver.
+  *         corresponds to literal definitions of driver->
   * @note   The different literal definitions of ADC channels are:
   *         - ADC internal channel:
   *           ADC_CHANNEL_VREFINT, ADC_CHANNEL_TEMPSENSOR, ...
@@ -1458,7 +1458,7 @@ typedef  void (*pADC_CallbackTypeDef)(ADC_HandleTypeDef *hadc); /*!< pointer to 
   *         returned from ADC registers,
   *         because internal and external channels share the same channel
   *         number in ADC registers. The differentiation is made only with
-  *         parameters definitions of driver.
+  *         parameters definitions of driver->
   * @param  __CHANNEL__ This parameter can be one of the following values:
   *         @arg @ref ADC_CHANNEL_0
   *         @arg @ref ADC_CHANNEL_1
@@ -1569,7 +1569,7 @@ typedef  void (*pADC_CallbackTypeDef)(ADC_HandleTypeDef *hadc); /*!< pointer to 
   *         returned from ADC registers,
   *         because internal and external channels share the same channel
   *         number in ADC registers. The differentiation is made only with
-  *         parameters definitions of driver.
+  *         parameters definitions of driver->
   * @param  __ADC_INSTANCE__ ADC instance
   * @param  __CHANNEL__ This parameter can be one of the following values:
   *         @arg @ref ADC_CHANNEL_VREFINT

@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    stm32g0xx_hal_cortex.c
   * @author  MCD Application Team
-  * @brief   CORTEX HAL module driver.
+  * @brief   CORTEX HAL module driver->
   *          This file provides firmware functions to manage the following
   *          functionalities of the CORTEX:
   *           + Initialization and Configuration functions

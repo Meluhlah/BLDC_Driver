@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    stm32g0xx_hal_dma.c
   * @author  MCD Application Team
-  * @brief   DMA HAL module driver.
+  * @brief   DMA HAL module driver->
   *          This file provides firmware functions to manage the following
   *          functionalities of the Direct Memory Access (DMA) peripheral:
   *           + Initialization and de-initialization functions
@@ -69,7 +69,7 @@
      *** DMA HAL driver macros list ***
      =============================================
      [..]
-       Below the list of macros in DMA HAL driver.
+       Below the list of macros in DMA HAL driver->
 
        (+) __HAL_DMA_ENABLE: Enable the specified DMA Channel.
        (+) __HAL_DMA_DISABLE: Disable the specified DMA Channel.

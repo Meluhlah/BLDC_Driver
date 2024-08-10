@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    stm32g0xx_hal_pwr_ex.c
   * @author  MCD Application Team
-  * @brief   Extended PWR HAL module driver.
+  * @brief   Extended PWR HAL module driver->
   *          This file provides firmware functions to manage the following
   *          functionalities of the Power Controller (PWR) peripheral:
   *           + Extended Initialization and de-initialization functions

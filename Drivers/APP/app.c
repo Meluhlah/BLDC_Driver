@@ -6,65 +6,74 @@ TX_BUFFER tx_buffer;
 const uint16_t tx_buffer_size = sizeof(tx_buffer);
 uint16_t dataToSend[UART_NUM_BYTES];
 
+
+volatile Bldc_t* pDriver = NULL;
+volatile Bldc_Handler_t* pHandler = NULL;
+volatile BldcParamsConfig_t* pDriverConfig = NULL;
+
+
 void run_app(){
+	pDriver = bldc_init();
+	pHandler = bldc_init_handler();
+	pDriverConfig = bldc_init_config();
+
 	uint8_t sw_state = HAL_GPIO_ReadPin(TOGGLE_SW_GPIO_Port, TOGGLE_SW_Pin);
     if(sw_state)
-    		set_phases_pwm_dc(0);
+    		bldc_set_pwm(pDriver, 0);
 
 	HAL_ADCEx_Calibration_Start(&hadc1);
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buffer, ADC_CHANNELS);
 	HAL_TIM_Base_Start(&htim17);
 	//HAL_TIM_Base_Start_IT(&htim16);
-	bldc_init();
-	align_motor();
-
-	rampUp();
-	//all_ch_OFF();
+	bldc_align_motor(pDriver);
+	bldc_rampUp(pDriver);
 
     while(1){
     	HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
         uint8_t sw_state = HAL_GPIO_ReadPin(TOGGLE_SW_GPIO_Port, TOGGLE_SW_Pin);
         if(sw_state){
-        		set_phases_pwm_dc(0);
+        	bldc_set_pwm(pDriver, 0);
         }
     }
 
 }
 
-void guiDataTransmit(){
+void guiDataTransmit(volatile Bldc_t* pDriver){
 
-	tx_buffer.phasesV[0] = driver.vA;
-	tx_buffer.phasesV[1] = driver.vB;
-	tx_buffer.phasesV[2] = driver.vC;
-	tx_buffer.phasesI[0] = driver.iA;
-	tx_buffer.phasesI[1] = driver.iB;
-	tx_buffer.phasesI[2] = driver.iC;
-	tx_buffer.vinRef = driver.vinRef;
+	tx_buffer.phasesV[0] = bldc_get_vA(pDriver);
+	tx_buffer.phasesV[1] = bldc_get_vB(pDriver);
+	tx_buffer.phasesV[2] = bldc_get_vC(pDriver);
+	tx_buffer.phasesI[0] = bldc_get_iA(pDriver);
+	tx_buffer.phasesI[1] = bldc_get_iB(pDriver);
+	tx_buffer.phasesI[2] = bldc_get_iC(pDriver);
+	tx_buffer.vinRef = bldc_get_vinRef(pDriver);
 	tx_buffer.temperature[0] = 0;
 	tx_buffer.temperature[1] = 0;
 	tx_buffer.temperature[2] = 0;
 	tx_buffer.potValue = 0;
-	tx_buffer.pwmDutyCycle = PWM_TIMER->Instance->CCR1;
+	tx_buffer.pwmDutyCycle = bldc_get_pwm(pDriver);
 	//uint16_t temp = (eepromRegRD[1] << 8) | eepromRegRD[0];
 	//tx_buffer.eepromVal = temp;
 	//tx_buffer.errorcode = errorHandler;
 	memcpy(dataToSend, &tx_buffer, sizeof(tx_buffer));
 	HAL_UART_Transmit(&huart1, (uint8_t*)dataToSend, sizeof(dataToSend), HAL_MAX_DELAY);
 //
+
 }
 
 
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
+
 	if(htim->Instance == TIM14){
+		static uint16_t align_steps_temp = ALIGN_STEPS;
 		HAL_GPIO_TogglePin(TEST_GPIO_Port, TEST_Pin);
-		--alignSteps;
-		//PWM_TIMER->Instance->CCR1 += ALIGN_PWM_INCREMENT;
+		--align_steps_temp;
 	}
 
 	if(htim->Instance == TIM16){
-		guiDataTransmit();
+		guiDataTransmit(pDriver);
 
 	}
 
@@ -73,11 +82,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc){
-
-
-	//HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buffer, ADC_CHANNELS);
-//	HAL_GPIO_TogglePin(TEST_GPIO_Port, TEST_Pin);
-
 
 	/* ADC BUFFER:
 	 * [0]: 	V_C
@@ -93,34 +97,36 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc){
 	 * [10]:	POTENTIOMETER
 	*/
 
+	static uint16_t bemf_counter = 0;
+	bool_t bemf_flag = false;
+
 	if(hadc->Instance == ADC1){
-        driver.vA = adc_buffer[4];
-        driver.vB = adc_buffer[2];
-        driver.vC = adc_buffer[0];       
-        driver.vinRef = adc_buffer[6] / 2;
+		bldc_set_vA(pDriver, adc_buffer[4]);
+		bldc_set_vB(pDriver, adc_buffer[2]);
+		bldc_set_vC(pDriver, adc_buffer[0]);
+		bldc_set_vinRef(pDriver, adc_buffer[6] / 2);
         //driver_conf.pwmDutyCycle = (uint16_t)(adc_buffer[10] * (1599.0f/4095.0f));
     }
 
-//	driver.pwmDutyCycle = driver.pwmDutyCycle * (1599/4095);
-//
-//	TIM1->CCR1 = driver.pwmDutyCycle;
-//	TIM1->CCR2 = driver.pwmDutyCycle;
-//	TIM1->CCR3 = driver.pwmDutyCycle;
 
-    bemf_flag = bemf_sensing();
+    bemf_flag = bldc_bemf_sensing(pDriver);
     
-    if(bemf_flag == true && motor_event == BEMF_COUNTING)
+
+    if(bemf_flag == true && (bldc_get_event(pHandler) == BEMF_COUNTING))
     	++bemf_counter;
 
-    if(bemf_flag == true && motor_event == BEMF_SENSING){
+    if(bemf_flag == true && (bldc_get_event(pHandler) == BEMF_SENSING)){
         //motor_state = AUTO_COMMUTATION;
-    	trapezoidal_commute();
+    	bldc_trapezoidal_commute(pDriver);
 
     }
     
     bemf_flag = false;
-    driver.prev_vA = driver.vA;
-    driver.prev_vB = driver.vB;
-    driver.prev_vC = driver.vC;
+    bldc_set_prev_vA(pDriver, bldc_get_vA(pDriver));
+    bldc_set_prev_vB(pDriver, bldc_get_vB(pDriver));
+    bldc_set_prev_vC(pDriver, bldc_get_vC(pDriver));
+    //driver->prev_vA = driver->vA;
+    //driver->prev_vB = driver->vB;
+    //driver->prev_vC = driver->vC;
 
 }

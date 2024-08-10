@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    stm32g0xx_hal_tim_ex.c
   * @author  MCD Application Team
-  * @brief   TIM HAL module driver.
+  * @brief   TIM HAL module driver->
   *          This file provides firmware functions to manage the following
   *          functionalities of the Timer Extended peripheral:
   *           + Time Hall Sensor Interface Initialization
