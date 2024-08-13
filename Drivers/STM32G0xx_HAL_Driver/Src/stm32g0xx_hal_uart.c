@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    stm32g0xx_hal_uart.c
   * @author  MCD Application Team
-  * @brief   UART HAL module driver->
+  * @brief   UART HAL module driver.
   *          This file provides firmware functions to manage the following
   *          functionalities of the Universal Asynchronous Receiver Transmitter Peripheral (UART).
   *           + Initialization and de-initialization functions

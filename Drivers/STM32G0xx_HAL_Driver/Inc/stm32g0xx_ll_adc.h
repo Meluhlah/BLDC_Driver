@@ -1375,7 +1375,7 @@ and auto power-off combined. See description with function @ref LL_ADC_SetLowPow
 
 /**
   * @brief  Helper macro to determine whether the selected channel
-  *         corresponds to literal definitions of driver->
+  *         corresponds to literal definitions of driver.
   * @note   The different literal definitions of ADC channels are:
   *         - ADC internal channel:
   *           LL_ADC_CHANNEL_VREFINT, LL_ADC_CHANNEL_TEMPSENSOR, ...
@@ -1389,7 +1389,7 @@ and auto power-off combined. See description with function @ref LL_ADC_SetLowPow
   *         returned from ADC registers,
   *         because internal and external channels share the same channel
   *         number in ADC registers. The differentiation is made only with
-  *         parameters definitions of driver->
+  *         parameters definitions of driver.
   * @param  __CHANNEL__ This parameter can be one of the following values:
   *         @arg @ref LL_ADC_CHANNEL_0
   *         @arg @ref LL_ADC_CHANNEL_1
@@ -1500,7 +1500,7 @@ and auto power-off combined. See description with function @ref LL_ADC_SetLowPow
   *         returned from ADC registers,
   *         because internal and external channels share the same channel
   *         number in ADC registers. The differentiation is made only with
-  *         parameters definitions of driver->
+  *         parameters definitions of driver.
   * @param  __ADC_INSTANCE__ ADC instance
   * @param  __CHANNEL__ This parameter can be one of the following values:
   *         @arg @ref LL_ADC_CHANNEL_VREFINT

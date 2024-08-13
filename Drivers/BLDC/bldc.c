@@ -1,18 +1,27 @@
-#include "bldc.h"
-#include "tim.h"
+#include <bldc.h>
 #include <stdlib.h>
+#include <stm32g0xx_hal_tim.h>
+#include <stm32g0xx_hal_tim_ex.h>
+#include <sys/_stdint.h>
 
 /*	---------------------- Variables Initialization ---------------------- */
 
 volatile uint16_t bemf_counter;
 volatile bool_t bemf_flag = false;
-
-BldcState_e motor_state = IDLE;
-BldcEvent_e motor_event = INIT;
 uint16_t align_steps_temp = 0;
 
 
 /*	---------------------- Typedefs Initialization ---------------------- */
+
+//struct BldcHandler_t{
+//
+//	Bldc_t* bldc;
+//	BldcParamsConfig_t* bldcConfig;
+//	BldcEvent_e* bldcEvent;
+//	BldcState_e* bldcState;
+//	TIM_HandleTypeDef* pwmTimer;
+//};
+
 
 struct Bldc_t{
     uint16_t vA;
@@ -32,6 +41,8 @@ struct Bldc_t{
     uint8_t current_step;
     uint8_t next_step;
     uint8_t prev_step;
+
+    uint16_t bemf_counter;
 
     TIM_HandleTypeDef* pwmTimer;
     uint16_t currentPwmDutyCycle;
@@ -76,6 +87,7 @@ Bldc_t* bldc_init(){
 	pBldc->prev_step = 0;
 	pBldc->currentPwmDutyCycle = 0;
 	pBldc->rpmValue = 0.0f;
+	pBldc->bemf_counter = 0;
 	pBldc->pwmTimer = &PWM_TIM;
 	return pBldc;
 }
@@ -101,26 +113,31 @@ BldcParamsConfig_t* bldc_init_config(){
 }
 
 /*	---------------------- Setters Methods ---------------------- */
+void bldc_set_state  	(volatile Bldc_Handler_t* pHandler, BldcState_e state)	{pHandler->state = state;}
+void bldc_set_event  	(volatile Bldc_Handler_t* pHandler, BldcEvent_e event)	{pHandler->event = event;}
 
-void bldc_set_vA		(volatile Bldc_t* pDriver, uint16_t value){pDriver->vA = value;}
-void bldc_set_vB		(volatile Bldc_t* pDriver, uint16_t value){pDriver->vB = value;}
-void bldc_set_vC		(volatile Bldc_t* pDriver, uint16_t value){pDriver->vC = value;}
+void bldc_set_vA		(volatile Bldc_t* pDriver, uint16_t value)	{pDriver->vA = value;}
+void bldc_set_vB		(volatile Bldc_t* pDriver, uint16_t value)	{pDriver->vB = value;}
+void bldc_set_vC		(volatile Bldc_t* pDriver, uint16_t value)	{pDriver->vC = value;}
 
-void bldc_set_prev_vA	(volatile Bldc_t* pDriver, uint16_t value){pDriver->prev_vA = value;}
-void bldc_set_prev_vB	(volatile Bldc_t* pDriver, uint16_t value){pDriver->prev_vB = value;}
-void bldc_set_prev_vC	(volatile Bldc_t* pDriver, uint16_t value){pDriver->prev_vC = value;}
+void bldc_set_prev_vA	(volatile Bldc_t* pDriver, uint16_t value)	{pDriver->prev_vA = value;}
+void bldc_set_prev_vB	(volatile Bldc_t* pDriver, uint16_t value)	{pDriver->prev_vB = value;}
+void bldc_set_prev_vC	(volatile Bldc_t* pDriver, uint16_t value)	{pDriver->prev_vC = value;}
 
-void bldc_set_iA		(volatile Bldc_t* pDriver, uint16_t value){pDriver->iA = value;}
-void bldc_set_iB		(volatile Bldc_t* pDriver, uint16_t value){pDriver->iB = value;}
-void bldc_set_iC		(volatile Bldc_t* pDriver, uint16_t value){pDriver->iC = value;}
+void bldc_set_iA		(volatile Bldc_t* pDriver, uint16_t value)	{pDriver->iA = value;}
+void bldc_set_iB		(volatile Bldc_t* pDriver, uint16_t value)	{pDriver->iB = value;}
+void bldc_set_iC		(volatile Bldc_t* pDriver, uint16_t value)	{pDriver->iC = value;}
 
-void bldc_set_vinRef	(volatile Bldc_t* pDriver, uint16_t value){pDriver->vinRef = value;}
 
-void bldc_set_commute_step		(volatile Bldc_t *pDriver, uint8_t step){pDriver->current_step = step;}
-void bldc_set_next_commute_step	(volatile Bldc_t *pDriver, uint8_t step){pDriver->next_step = step;}
+void bldc_set_rpm		(volatile Bldc_t* pDriver, float rpmValue)	{pDriver->rpmValue = rpmValue;}
 
-void bldc_set_state  (volatile Bldc_Handler_t* pHandler, BldcState_e state){pHandler->state = state;}
-void bldc_set_event  (volatile Bldc_Handler_t* pHandler, BldcEvent_e event){pHandler->event = event;}
+void bldc_set_vinRef	(volatile Bldc_t* pDriver, uint16_t value)	{pDriver->vinRef = value;}
+
+void bldc_set_commute_step			(volatile Bldc_t *pDriver, uint8_t step)	{pDriver->current_step = step;}
+void bldc_set_next_commute_step		(volatile Bldc_t *pDriver, uint8_t step)	{pDriver->next_step = step;}
+
+
+void bldc_increment_bemf_counter	(volatile Bldc_t* pDriver){pDriver->bemf_counter++;}
 
 /*	---------------------- Getters Methods ---------------------- */
 
@@ -145,6 +162,24 @@ BldcState_e bldc_get_state  (volatile Bldc_Handler_t* pHandler){return pHandler-
 BldcEvent_e bldc_get_event  (volatile Bldc_Handler_t* pHandler){return pHandler->event;}
 
 uint16_t bldc_get_align_steps (volatile BldcParamsConfig_t* pDriverConfig){return pDriverConfig->align_steps;}
+
+
+
+
+void bldc_calculate_rpm	(volatile Bldc_t* pDriver, volatile BldcParamsConfig_t* pConfig, uint32_t start_time, uint32_t end_time){
+	// rpm = 60 & Timer freq / (T_delta step 0 and step 5 * num pole pairs)
+	// TIM16 - 40KHz
+
+	uint32_t timeDelta = end_time - start_time;
+	float frequency = 1.0f / ((float)timeDelta / 1000000.0f);
+	float rpm = 60 * frequency / pConfig->pole_pairs;
+	pDriver->rpmValue = rpm;
+
+}
+
+
+
+
 
 
 void bldc_commutation_step(volatile Bldc_t* pDriver, uint8_t step){
@@ -236,36 +271,32 @@ void bldc_align_motor(volatile Bldc_t* pDriver){
 	bldc_phaseB_L_ON();
 	bldc_phaseC_L_ON();
 	HAL_TIM_Base_Start_IT(&htim14);
-
 	while(align_steps_temp > 0);	// TIM4 Callback
 
 	HAL_TIM_Base_Stop_IT(&htim14);
-	//all_ch_OFF();
-
-	bldc_set_pwm(pDriver, 10);
-
 	bldc_set_commute_step(pDriver, 0);
 }
 
 
-void bldc_rampUp(volatile Bldc_t* pDriver){
+void bldc_ramp(volatile Bldc_t* pDriver, volatile BldcParamsConfig_t* pConfig , volatile Bldc_Handler_t* pHandler){
 
 	/*	REMOVE NUMBERS FROM FUNCTION, USE DEFINES */
+	bldc_set_pwm(pDriver, RAMP_STARTING_PWM);
 	uint16_t i = 5000;
-    motor_state = RAMP;
+    pHandler->state = RAMP;
     uint8_t steps_counter = 0;
-    while(i > 100 && motor_event != BEMF_SENSING) // && motor_state != AUTO_COMMUTATION){
+    while((i > 100) && (pHandler->event != BEMF_SENSING)) // && motor_state != AUTO_COMMUTATION){
     {
 
     	if(i <= 2000)
-    		motor_event = BEMF_COUNTING;
+    		pHandler->event = BEMF_COUNTING;
 
-    	if(bemf_counter >= BEMF_DETECTED_THRESHOLD){
-    		motor_event = BEMF_SENSING;
-    		motor_state = AUTO_COMMUTATION;
+    	if(pDriver->bemf_counter >= BEMF_DETECTED_THRESHOLD){
+    		pHandler->event = BEMF_SENSING;
+    		pHandler->state = AUTO_COMMUTATION;
     	}
     	delayMicro(i);
-        bldc_trapezoidal_commute(pDriver);
+        bldc_trapezoidal_commute(pDriver, pConfig, pHandler);
         i-=20;
         ++steps_counter;
         if(steps_counter == 25){
@@ -273,6 +304,12 @@ void bldc_rampUp(volatile Bldc_t* pDriver){
         	steps_counter = 0;
         }
     }
+
+}
+
+float bldc_get_rpm(volatile Bldc_t* pDriver, uint32_t start_time, uint32_t end_time){
+
+
 
 }
 
@@ -334,15 +371,15 @@ bool_t bldc_bemf_sensing(volatile Bldc_t* pDriver){
 }
 
 
-void bldc_trapezoidal_commute(volatile Bldc_t* pDriver){
+void bldc_trapezoidal_commute (volatile Bldc_t* pDriver, volatile BldcParamsConfig_t* pConfig , volatile Bldc_Handler_t* pHandler){
 
 	static uint32_t start_time = 0;
 	static uint32_t end_time = 0;
-	float rpmValue = 0.0f;
 
     switch(pDriver->current_step){
         case 0:
-        	if(motor_state == AUTO_COMMUTATION){
+        	if(pHandler->state == AUTO_COMMUTATION)
+        	{
 
         		__HAL_TIM_SET_COUNTER(&htim17, 0);
         		start_time = __HAL_TIM_GET_COUNTER(&htim17);
@@ -365,9 +402,10 @@ void bldc_trapezoidal_commute(volatile Bldc_t* pDriver){
             break;
         case 5:
 
-        	if(motor_state == AUTO_COMMUTATION){
+        	if(pHandler->state == AUTO_COMMUTATION)
+        	{
         		end_time = __HAL_TIM_GET_COUNTER(&htim17);
-        		//bldc_get_rpm(pDriver, start_time, end_time);
+        		bldc_calculate_rpm(pDriver, pConfig, start_time, end_time);
         	}
 
         	bldc_commutation_step(pDriver, 0);

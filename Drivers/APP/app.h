@@ -6,6 +6,8 @@
 #include "bldc.h"
 #include <string.h>
 #include "adc.h"
+#include "PID.h"
+
 
 #define ADC_CHANNELS    (uint8_t)10
 #define UART_NUM_BYTES		(uint8_t)28

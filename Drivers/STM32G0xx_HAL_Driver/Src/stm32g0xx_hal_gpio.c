@@ -2,7 +2,7 @@
   ******************************************************************************
   * @file    stm32g0xx_hal_gpio.c
   * @author  MCD Application Team
-  * @brief   GPIO HAL module driver->
+  * @brief   GPIO HAL module driver.
   *          This file provides firmware functions to manage the following
   *          functionalities of the General Purpose Input/Output (GPIO) peripheral:
   *           + Initialization and de-initialization functions

@@ -9,13 +9,13 @@ uint16_t dataToSend[UART_NUM_BYTES];
 
 volatile Bldc_t* pDriver = NULL;
 volatile Bldc_Handler_t* pHandler = NULL;
-volatile BldcParamsConfig_t* pDriverConfig = NULL;
+volatile BldcParamsConfig_t* pConfig = NULL;
 
 
 void run_app(){
 	pDriver = bldc_init();
 	pHandler = bldc_init_handler();
-	pDriverConfig = bldc_init_config();
+	pConfig = bldc_init_config();
 
 	uint8_t sw_state = HAL_GPIO_ReadPin(TOGGLE_SW_GPIO_Port, TOGGLE_SW_Pin);
     if(sw_state)
@@ -26,7 +26,7 @@ void run_app(){
 	HAL_TIM_Base_Start(&htim17);
 	//HAL_TIM_Base_Start_IT(&htim16);
 	bldc_align_motor(pDriver);
-	bldc_rampUp(pDriver);
+	bldc_ramp(pDriver, pConfig, pHandler);
 
     while(1){
     	HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
@@ -97,7 +97,6 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc){
 	 * [10]:	POTENTIOMETER
 	*/
 
-	static uint16_t bemf_counter = 0;
 	bool_t bemf_flag = false;
 
 	if(hadc->Instance == ADC1){
@@ -113,11 +112,15 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc){
     
 
     if(bemf_flag == true && (bldc_get_event(pHandler) == BEMF_COUNTING))
-    	++bemf_counter;
+
+    {
+    	bldc_increment_bemf_counter(pDriver);
+
+    }
 
     if(bemf_flag == true && (bldc_get_event(pHandler) == BEMF_SENSING)){
-        //motor_state = AUTO_COMMUTATION;
-    	bldc_trapezoidal_commute(pDriver);
+
+    	bldc_trapezoidal_commute(pDriver, pConfig, pHandler);
 
     }
     
@@ -125,8 +128,5 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc){
     bldc_set_prev_vA(pDriver, bldc_get_vA(pDriver));
     bldc_set_prev_vB(pDriver, bldc_get_vB(pDriver));
     bldc_set_prev_vC(pDriver, bldc_get_vC(pDriver));
-    //driver->prev_vA = driver->vA;
-    //driver->prev_vB = driver->vB;
-    //driver->prev_vC = driver->vC;
 
 }

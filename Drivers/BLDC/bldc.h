@@ -12,14 +12,14 @@
 #define PHC_CHANNEL     			TIM_CHANNEL_3
 
 
-/*	---------------------- Motor Align Parameters ---------------------- */
+/*	---------------------- Motor Align & Ramp Parameters ---------------------- */
 
+#define DELAY_TIMER     			htim17		// Used for Creating a rampup delay - Remove
 #define ALIGN_STEPS					(uint8_t)30
 #define ALIGN_MAX_PWM				(uint8_t)50	// Percentage
 #define ALIGN_START_PWM				(uint8_t)5	// Percentage
 #define ALIGN_PWM_INCREMENT			(uint8_t)((ALIGN_MAX_PWM - ALIGN_START_PWM) / ALIGN_STEPS)
-#define DELAY_TIMER     			htim17		// Used for Creating a rampup delay - Remove
-
+#define RAMP_STARTING_PWM			(uint8_t)10
 
 /*	---------------------- BEMF Parameters ---------------------- */
 
@@ -59,7 +59,7 @@ typedef enum{
 
 extern volatile Bldc_t* pDriver;
 extern volatile Bldc_Handler_t* pHandler;
-extern volatile BldcParamsConfig_t* pDriverConfig;
+extern volatile BldcParamsConfig_t* pConfig;
 extern volatile bool_t bemf_flag;
 extern volatile uint16_t bemf_counter;
 extern uint16_t align_steps_temp;
@@ -73,10 +73,10 @@ BldcParamsConfig_t* bldc_init_config();
 
 /*	---------------------- Commutation Stages Methods ---------------------- */
 
+void bldc_ramp					(volatile Bldc_t* pDriver, volatile BldcParamsConfig_t* pConfig , volatile Bldc_Handler_t* pHandler);
+void bldc_trapezoidal_commute	(volatile Bldc_t* pDriver, volatile BldcParamsConfig_t *pConfig , volatile Bldc_Handler_t* pHandler);
 void bldc_commutation_step		(volatile Bldc_t* pDriver, uint8_t step);
-void bldc_trapezoidal_commute	(volatile Bldc_t* pDriver);
 void bldc_align_motor			(volatile Bldc_t* pDriver);
-void bldc_rampUp				(volatile Bldc_t* pDriver);
 bool_t bldc_bemf_sensing		(volatile Bldc_t* pDriver);
 
 
@@ -113,11 +113,16 @@ void bldc_set_iC		(volatile Bldc_t* pDriver, uint16_t value);
 void bldc_set_vinRef	(volatile Bldc_t* pDriver, uint16_t value);
 
 void bldc_set_pwm		(volatile Bldc_t* pDriver, uint8_t duty_cycle);
+void bldc_set_rpm		(volatile Bldc_t* pDriver, float rpmValue);
 void bldc_set_commute_step		(volatile Bldc_t *pDriver, uint8_t step);
 void bldc_set_next_commute_step	(volatile Bldc_t *pDriver, uint8_t step);
 
 void bldc_set_state  (volatile Bldc_Handler_t* pHandler, BldcState_e state);
 void bldc_set_event  (volatile Bldc_Handler_t* pHandler, BldcEvent_e event);
+
+void bldc_calculate_rpm	(volatile Bldc_t* pDriver, volatile BldcParamsConfig_t* pConfig, uint32_t start_time, uint32_t end_time);
+
+void bldc_increment_bemf_counter(volatile Bldc_t* pDriver);
 
 /* ------------------- Getters -----------------*/
 uint16_t bldc_get_vA		(volatile Bldc_t* pDriver);
@@ -135,7 +140,7 @@ uint16_t bldc_get_iC		(volatile Bldc_t* pDriver);
 uint16_t bldc_get_vinRef	(volatile Bldc_t* pDriver);
 
 uint8_t bldc_get_pwm		(volatile Bldc_t* pDriver);
-float   bldc_get_rpm		(volatile Bldc_t* pDriver, uint32_t start_time, uint32_t end_time);
+
 
 BldcState_e bldc_get_state  (volatile Bldc_Handler_t* pHandler);
 BldcEvent_e bldc_get_event  (volatile Bldc_Handler_t* pHandler);
