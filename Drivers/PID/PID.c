@@ -1,9 +1,5 @@
 #include "PID.h"
 
-
-// #define PI_CONTROL
-#define PID_CONTROL
-
 void pidInit(PIDController* pid, float kp, float ki, float kd){
     pid->kp = kp;
     pid->ki = ki;

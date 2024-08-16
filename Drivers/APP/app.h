@@ -9,7 +9,7 @@
 #include "PID.h"
 
 
-#define ADC_CHANNELS    (uint8_t)10
+#define ADC_CHANNELS    	(uint8_t)10
 #define UART_NUM_BYTES		(uint8_t)28
 
 
@@ -33,7 +33,7 @@ extern volatile uint16_t adc_buffer[ADC_CHANNELS];
 
 
 void run_app();
-void guiDataTransmit(volatile Bldc_t* pDriver);
+void guiDataTransmit(volatile BldcHandler_t* pDriver);
 
 
 #endif	// __APP_H

@@ -1,8 +1,11 @@
-#ifndef __PI_CONTROLLER
-#define __PI_CONTROLLER
+#ifndef __PID_CONTROLLER
+#define __PID_CONTROLLER
 
 #define SAMPLETIME  0.001   // Seconds
 #define TAU         0.001   // Seconds
+
+// #define PI_CONTROL
+#define PID_CONTROL
 
 typedef struct{
 
@@ -39,4 +42,4 @@ float pidUpdate(PIDController* pid, float setpoint, float measurement);
 
 
 
-#endif // __PI_CONTROLLER
+#endif // __PID_CONTROLLER
