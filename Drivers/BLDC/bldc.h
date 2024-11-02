@@ -20,11 +20,16 @@
 /*	---------------------- Motor Align & Ramp Parameters ---------------------- */
 
 #define DELAY_TIMER     			htim17		// Used for Creating a rampup delay - Remove
-#define ALIGN_STEPS					(uint8_t)30
-#define ALIGN_MAX_PWM				(uint8_t)50	// Percentage
-#define ALIGN_START_PWM				(uint8_t)5	// Percentage
-#define ALIGN_PWM_INCREMENT			(uint8_t)((ALIGN_MAX_PWM - ALIGN_START_PWM) / ALIGN_STEPS)
-#define RAMP_STARTING_PWM			(uint8_t)10
+
+#define ALIGN_STEP_DELAY			(uint8_t)300	// ms
+#define ALIGN_PWM_MAX				(uint8_t)10	// Percentage
+#define ALIGN_PWM_START				(uint8_t)2	// Percentage
+#define ALIGN_PWM_STEP				(uint8_t)1
+
+#define RAMP_STEP_DELAY				(uint16_t)350
+#define RAMP_PWM_START				(uint8_t)20
+#define RAMP_PWM_STEP				(uint8_t)1
+#define RAMP_PWM_MAX				(uint8_t)40
 
 /*	---------------------- BEMF Parameters ---------------------- */
 
@@ -37,14 +42,22 @@
 /*	---------------------- Enums Declarations ---------------------- */
 
 typedef enum {
-    IDLE,
-	ALIGN,
-    RAMP,
-	AUTO_COMMUTATION
+    MOTOR_IDLE,
+
+	MOTOR_ALIGN_INIT,
+	MOTOR_ALIGN_PHASE_ON,
+	MOTOR_ALIGN_PHASE_OFF,
+	MOTOR_ALIGN_DONE,
+
+    MOTOR_RAMP_START,
+	MOTOR_RAMP_IN_PROGRESS,
+	MOTOR_RAMP_DONE,
+
+	MOTOR_AUTO_COMMUTATION
 } BldcState_e;
 
 typedef enum{
-	INIT,
+	DEFAULT,
 	BEMF_COUNTING,
 	BEMF_SENSING,
 	OVER_CURRENT
@@ -61,28 +74,34 @@ typedef uint8_t bool_t;
 typedef struct BldcParamsConfig_t BldcParamsConfig_t;
 
 typedef struct BldcCommutation_t{
-	uint16_t 	vA;
-	uint16_t 	vB;
-	uint16_t 	vC;
+	uint16_t vA;
+	uint16_t vB;
+	uint16_t vC;
 
-	uint16_t 	prev_vA;
-	uint16_t 	prev_vB;
-	uint16_t	prev_vC;
+	uint16_t prev_vA;
+	uint16_t prev_vB;
+	uint16_t prev_vC;
 
-	uint16_t	iA;
-	uint16_t 	iB;
-	uint16_t 	iC;
+	uint16_t iA;
+	uint16_t iB;
+	uint16_t iC;
 
-	uint16_t 	vinRef;
+	uint16_t tempA;
+	uint16_t tempB;
+	uint16_t tempC;
 
-	uint8_t 	current_step;
-	uint8_t 	next_step;
-	uint8_t 	prev_step;
+	uint16_t vinRef;
 
-	uint16_t 	bemf_counter;
-    uint16_t	currentPwmDutyCycle;
+	uint8_t current_step;
+	uint8_t next_step;
+	uint8_t prev_step;
 
-    float 		rpmValue;
+	uint16_t bemf_counter;
+	uint16_t align_current_step;
+    uint16_t pwm_dutyCycle;
+
+    uint16_t potValue;
+    float 	 rpmValue;
 
 }BldcCommutation_t;
 
@@ -106,18 +125,13 @@ typedef struct BldcHandler_t{
 }BldcHandler_t;
 
 
-
-
 /*	---------------------- Variables Declaration ---------------------- */
 
 extern volatile BldcHandler_t bldc;
-
-//extern volatile BldcHandler_t* pDriver;
-//extern volatile Bldc_Handler_t* pHandler;
-//extern volatile BldcParamsConfig_t* pConfig;
 extern volatile bool_t bemf_flag;
 extern volatile uint16_t bemf_counter;
-extern uint16_t align_steps_temp;
+extern uint16_t bldcAlignCounter;
+extern uint16_t bldcRampCounter;
 
 /*	---------------------- Initialization Methods ---------------------- */
 
@@ -129,12 +143,14 @@ BldcParamsConfig_t* bldc_initConfig();
 
 
 
-void bldc_ramp					(volatile BldcHandler_t* pDriver);
+void bldc_ramp_start			(volatile BldcHandler_t* pDriver);
+void bldc_ramp_step				(volatile BldcHandler_t* pDriver);
 void bldc_trapezoidal_commute	(volatile BldcHandler_t* pDriver);
 void bldc_commutation_step		(volatile BldcHandler_t* pDriver, uint8_t step);
-void bldc_align_motor			(volatile BldcHandler_t* pDriver);
+void bldc_align_motor_start		(volatile BldcHandler_t* pDriver);
+void bldc_align_motor_step		(volatile BldcHandler_t* pDriver);
 void bldc_bemf_sensing			(volatile BldcHandler_t* pDriver);
-
+void bldc_motor_status_init		(volatile BldcHandler_t* pDriver);
 
 /*	---------------------- Phases ON/OFF Methods ---------------------- */
 
@@ -152,19 +168,28 @@ void bldc_phaseC_off();
 
 void bldc_all_phases_off();
 
-/* ------------------- Setters -----------------*/
+/*	---------------------- BldcParamsConfig_t Setters Methods ---------------------- */
 
-void bldc_set_pwm(volatile BldcHandler_t* pDriver, uint8_t duty_cycle);
-void bldc_calculate_rpm	(volatile BldcHandler_t* pDriver, uint32_t start_time, uint32_t end_time);
-void bldc_increment_bemf_counter(volatile BldcHandler_t* pDriver);
+void bldc_set_bemf_threshold	(volatile BldcParamsConfig_t* pDriverConfig, uint16_t bemf_threshold);
+void bldc_set_align_steps 		(volatile BldcParamsConfig_t* pDriverConfig, uint16_t align_steps);
+void bldc_set_pole_pairs  		(volatile BldcParamsConfig_t* pDriverConfig, uint8_t  pole_pairs);
+void bldc_set_motorKV 	  		(volatile BldcParamsConfig_t* pDriverConfig, uint16_t motorKV);
+
+/* ----------------------------------------------------------------------------------*/
 
 
 
-/* ------------------- Getters -----------------*/
+void bldc_set_pwm				(volatile BldcHandler_t* pDriver, uint8_t duty_cycle);
+void bldc_calculate_rpm			(volatile BldcHandler_t* pDriver, uint32_t start_time, uint32_t end_time);
 
-uint16_t bldc_get_align_steps (volatile BldcParamsConfig_t* pDriverConfig);
 
-uint16_t bldc_get_motorKV (volatile BldcParamsConfig_t* pDriverConfig);
+/*	---------------------- BldcParamsConfig_t Getters Methods ---------------------- */
+
+uint16_t bldc_get_bemf_threshold	(volatile BldcParamsConfig_t* pDriverConfig);
+uint16_t bldc_get_align_steps 		(volatile BldcParamsConfig_t* pDriverConfig);
+uint16_t bldc_get_pole_pairs  		(volatile BldcParamsConfig_t* pDriverConfig);
+uint16_t bldc_get_motorKV 	  		(volatile BldcParamsConfig_t* pDriverConfig);
+
 
 /* ------------------- Conversions -----------------*/
 

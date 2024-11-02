@@ -77,8 +77,8 @@ void Error_Handler(void);
 #define TEMP_B_GPIO_Port GPIOB
 #define TEMP_A_Pin GPIO_PIN_10
 #define TEMP_A_GPIO_Port GPIOB
-#define TEST_Pin GPIO_PIN_12
-#define TEST_GPIO_Port GPIOB
+#define POT_Pin GPIO_PIN_12
+#define POT_GPIO_Port GPIOB
 #define GLA_Pin GPIO_PIN_13
 #define GLA_GPIO_Port GPIOB
 #define GLB_Pin GPIO_PIN_14

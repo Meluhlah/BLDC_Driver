@@ -9,11 +9,28 @@
 #include "PID.h"
 
 
-#define ADC_CHANNELS    	(uint8_t)10
-#define UART_NUM_BYTES		(uint8_t)28
+#define ADC_CHANNELS    				(uint8_t)11
+
+// --------------------------- GUI Commands ------------------------- //
+typedef enum {
+    CMD_MOTOR_INIT,
+    CMD_MOTOR_ALIGN,
+    CMD_MOTOR_START,
+    CMD_MOTOR_STOP,
+    CMD_SET_MOTOR_SPEED,
+    CMD_SET_MOTOR_DIRECTION,
+}UartCommands_e;
 
 
-typedef struct TX_BUFFER{
+typedef struct __attribute__((__packed__)){
+    UartCommands_e command; // This will be treated as uint8_t (1 byte)
+    uint16_t data;          // 2 bytes
+} UartBufferRx_t;
+
+typedef UartBufferRx_t UartBufferRx_t;
+
+
+typedef struct UartBufferTx_t{
 
 	uint16_t phasesV[3];
 	uint16_t phasesI[3];
@@ -23,12 +40,13 @@ typedef struct TX_BUFFER{
 	uint16_t pwmDutyCycle;
 	uint16_t rpm;
 	uint16_t rotationDirection;
+	uint32_t checkSum;
 
-} TX_BUFFER;
+} UartBufferTx_t;
 
-extern TX_BUFFER tx_buffer;
-extern uint16_t dataToSend[UART_NUM_BYTES];
-extern const uint16_t tx_buffer_size;
+extern UartBufferTx_t uartBufferTx;
+extern UartBufferRx_t uartBufferRx;
+
 extern volatile uint16_t adc_buffer[ADC_CHANNELS];
 
 
