@@ -114,20 +114,35 @@ void bldc_commutation_step(volatile BldcHandler_t* pDriver, uint8_t step){
 
 	switch(step){
 
+
+	/*
+	 * Step:	0	1	2	3	4	5
+	 * High:	A	B	B	C	C	A
+	 * OFF:		B	A	C	B	A	C
+	 * LOW:		C	C	A	A	B	B
+
+	 * BEMF:	↓ 	↑	↓	↑	↓	↑
+	 *			A   C	B	A	C	B
+	 *
+	 *
+
+	*/
+
+
 	case 0:
 	    pDriver->commutation.current_step = step;
 	    pDriver->commutation.next_step = 1;
-	    bldc_phaseC_off();
+	    bldc_phaseB_off();
 	    bldc_phaseA_H_ON();
-	    bldc_phaseB_L_ON();
+	    bldc_phaseC_L_ON();
 	    break;
 
 
 	case 1:
 		pDriver->commutation.current_step = step;
 		pDriver->commutation.next_step = 2;
-	    bldc_phaseB_off();
-	    bldc_phaseA_H_ON();
+	    bldc_phaseA_off();
+	    bldc_phaseB_H_ON();
 	    bldc_phaseC_L_ON();
 	    break;
 
@@ -135,36 +150,36 @@ void bldc_commutation_step(volatile BldcHandler_t* pDriver, uint8_t step){
 	case 2:
 		pDriver->commutation.current_step = step;
 		pDriver->commutation.next_step = 3;
-	    bldc_phaseA_off();
+	    bldc_phaseC_off();
 	    bldc_phaseB_H_ON();
-	    bldc_phaseC_L_ON();
+	    bldc_phaseA_L_ON();
 	    break;
 
 
 	case 3:
 		pDriver->commutation.current_step = step;
 		pDriver->commutation.next_step = 4;
-	    bldc_phaseC_off();
+	    bldc_phaseB_off();
+	    bldc_phaseC_H_ON();
 	    bldc_phaseA_L_ON();
-	    bldc_phaseB_H_ON();
 	    break;
 
 
 	case 4:
 		pDriver->commutation.current_step = step;
 		pDriver->commutation.next_step = 5;
-	    bldc_phaseB_off();
-	    bldc_phaseA_L_ON();
+	    bldc_phaseA_off();
 	    bldc_phaseC_H_ON();
+	    bldc_phaseB_L_ON();
 	    break;
 
 
 	case 5:
 		pDriver->commutation.current_step = step;
 		pDriver->commutation.next_step = 0;
-	    bldc_phaseA_off();
+	    bldc_phaseC_off();
+	    bldc_phaseA_H_ON();
 	    bldc_phaseB_L_ON();
-	    bldc_phaseC_H_ON();
 	    break;
 	}
 
@@ -203,7 +218,15 @@ void bldc_align_motor_step(volatile BldcHandler_t* pDriver){
 	/*
 	 * bldcAlignCounter: Timer14 interrupts every 1ms, so Each step executing for 1ms * bldcAlignCounter
 	 *
+	 *#define ALIGN_STEP_DELAY			(uint16_t)300	// Multiplier for 1ms Callback Interrupt
+	#define ALIGN_STEPS					(uint8_t)30		// How Many Steps of increment the Align function preforms
+	#define ALIGN_PWM_MAX				(uint16_t)20	// Percentage
+	#define ALIGN_PWM_START				(uint16_t)5		// Percentage
+	#define ALIGN_PWM_STEPS				(uint8_t)2		// PWM Value Increment
+	 *
 	 */
+
+	static uint16_t numberOfSteps = ALIGN_STEPS;
 	switch(pDriver->motorStatus.state){
 
 	case MOTOR_ALIGN_INIT:
@@ -220,27 +243,22 @@ void bldc_align_motor_step(volatile BldcHandler_t* pDriver){
 
 	case MOTOR_ALIGN_PHASE_ON:
 
-		if(bldcAlignCounter > 0 && pDriver->pwmTimer->Instance->CCR1 < ALIGN_PWM_MAX)
-			pDriver->pwmTimer->Instance->CCR1 += ALIGN_PWM_STEP;
-
-		else{
-			pDriver->motorStatus.state = MOTOR_ALIGN_PHASE_OFF;
-			bldcAlignCounter = ALIGN_STEP_DELAY;
+		if(pDriver->pwmTimer->Instance->CCR1 < ALIGN_PWM_MAX){
+			pDriver->pwmTimer->Instance->CCR1 += ALIGN_PWM_INC;
 		}
-		break;
 
-	case MOTOR_ALIGN_PHASE_OFF:
-		if(bldcAlignCounter > 0 && pDriver->pwmTimer->Instance->CCR1 > 0)
-			pDriver->pwmTimer->Instance->CCR1 -= ALIGN_PWM_STEP;
-
-		else
+		if(numberOfSteps == 0){
 			pDriver->motorStatus.state = MOTOR_ALIGN_DONE;
+		}
+
+		numberOfSteps--;
 		break;
 
 	case MOTOR_ALIGN_DONE:
 		bldc_all_phases_off();
 		HAL_TIM_Base_Stop_IT(&htim14);
 		HAL_GPIO_WritePin(LED_B_GPIO_Port, LED_B_Pin, GPIO_PIN_RESET);
+		numberOfSteps = ALIGN_STEPS;
 		pDriver->commutation.current_step = 0;
 		break;
 
@@ -294,8 +312,6 @@ void bldc_ramp_step(volatile BldcHandler_t* pDriver) {
             break;
 
         case MOTOR_RAMP_DONE:
-            //bldc_all_phases_off();
-            //HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_SET);
             HAL_TIM_Base_Stop_IT(&htim17);
             pDriver->motorStatus.event = BEMF_SENSING;
             delayUs = RAMP_STEP_DELAY;
@@ -339,53 +355,60 @@ void bldc_ramp_step(volatile BldcHandler_t* pDriver) {
 
 void bldc_bemf_sensing(volatile BldcHandler_t* pDriver){
 /*
-    STEP0: A-H      , B-L		, C-FLOAT
-    STEP1: A-H      , B-FLOAT	, C-L
-    STEP2: A-FLOAT  , B-H		, C-L
-    STEP3: A-H      , B-L		, C-FLOAT
-    STEP4: A-L      , B-FLOAT	, C-H
-    STEP5: A-FLOAT  , B-L		, C-H
+ * Step:	0	1	2	3	4	5
+ * High:	A	B	B	C	C	A
+ * OFF:		B	A	C	B	A	C
+ * LOW:		C	C	A	A	B	B
+
+ * BEMF:	↓ 	↑	↓	↑	↓	↑
+ *			A   C	B	A	C	B
+ *
+ *
 
 */
-
-
-	// ##################### CHANGE STATE EACH CASE FOR RISING OR FALLING ONLY, TO MITIGATE NOISE ###########################
     switch(pDriver->commutation.current_step){
         case 0:
-        case 3:
-            if(	(pDriver->commutation.prev_vC < pDriver->commutation.vinRef && pDriver->commutation.vC > pDriver->commutation.vinRef + BEMF_VALUE_THRESHOLD) ||
-            	(pDriver->commutation.prev_vC > pDriver->commutation.vinRef && pDriver->commutation.vC < pDriver->commutation.vinRef - BEMF_VALUE_THRESHOLD))
-            {
-            	pDriver->motorStatus.bemf_flag = true;
-            	return;
-            }
+        	if(pDriver->commutation.prev_vA > pDriver->commutation.vinRef && pDriver->commutation.vA < pDriver->commutation.vinRef){
+        		pDriver->motorStatus.bemf_flag = true;
+        		return;
+        	}
+        	break;
 
-            break;
-
-        case 2:
-        case 5:
-
-            if(	(pDriver->commutation.prev_vA < pDriver->commutation.vinRef && pDriver->commutation.vA > pDriver->commutation.vinRef + BEMF_VALUE_THRESHOLD) ||
-            	(pDriver->commutation.prev_vA > pDriver->commutation.vinRef && pDriver->commutation.vA < pDriver->commutation.vinRef - BEMF_VALUE_THRESHOLD))
-            {
-            	pDriver->motorStatus.bemf_flag = true;
-            	return;
-            }
-
-            break;
 
         case 1:
+        	if(pDriver->commutation.prev_vC < pDriver->commutation.vinRef && pDriver->commutation.vC > pDriver->commutation.vinRef){
+        		pDriver->motorStatus.bemf_flag = true;
+        		return;
+        	}
+        	break;
+
+        case 2:
+        	if(pDriver->commutation.prev_vB > pDriver->commutation.vinRef && pDriver->commutation.vB < pDriver->commutation.vinRef){
+        		pDriver->motorStatus.bemf_flag = true;
+        		return;
+        	}
+        	break;
+
+        case 3:
+        	if(pDriver->commutation.prev_vA < pDriver->commutation.vinRef && pDriver->commutation.vA > pDriver->commutation.vinRef){
+        		pDriver->motorStatus.bemf_flag = true;
+        		return;
+        	}
+        	break;
+
         case 4:
+        	if(pDriver->commutation.prev_vC > pDriver->commutation.vinRef && pDriver->commutation.vC < pDriver->commutation.vinRef){
+        		pDriver->motorStatus.bemf_flag = true;
+        		return;
+        	}
+        	break;
 
-            if(	(pDriver->commutation.prev_vB < pDriver->commutation.vinRef && pDriver->commutation.vB > pDriver->commutation.vinRef + BEMF_VALUE_THRESHOLD) ||
-                (pDriver->commutation.prev_vB > pDriver->commutation.vinRef && pDriver->commutation.vB < pDriver->commutation.vinRef - BEMF_VALUE_THRESHOLD))
-            {
-            	pDriver->motorStatus.bemf_flag = true;
-            	return;
-            }
-
-            break;
-
+        case 5:
+        	if(pDriver->commutation.prev_vB < pDriver->commutation.vinRef && pDriver->commutation.vB > pDriver->commutation.vinRef){
+        		pDriver->motorStatus.bemf_flag = true;
+        		return;
+        	}
+        	break;
         default:
             break;
     }
@@ -402,13 +425,13 @@ void bldc_trapezoidal_commute(volatile BldcHandler_t* pDriver){
 
     switch(pDriver->commutation.current_step){
         case 0:
-        	if(pDriver->motorStatus.state == MOTOR_AUTO_COMMUTATION)
-        	{
-
-        		__HAL_TIM_SET_COUNTER(&htim17, 0);
-        		start_time = __HAL_TIM_GET_COUNTER(&htim17);
-
-        	}
+//        	if(pDriver->motorStatus.state == MOTOR_AUTO_COMMUTATION)
+//        	{
+//
+//        		__HAL_TIM_SET_COUNTER(&htim17, 0);
+//        		start_time = __HAL_TIM_GET_COUNTER(&htim17);
+//
+//        	}
             bldc_commutation_step(pDriver, 1);
 
             break;
@@ -426,11 +449,11 @@ void bldc_trapezoidal_commute(volatile BldcHandler_t* pDriver){
             break;
         case 5:
 
-        	if(pDriver->motorStatus.state == MOTOR_AUTO_COMMUTATION)
-        	{
-        		end_time = __HAL_TIM_GET_COUNTER(&htim17);
-        		bldc_calculate_rpm(pDriver, start_time, end_time);
-        	}
+//        	if(pDriver->motorStatus.state == MOTOR_AUTO_COMMUTATION)
+//        	{
+//        		end_time = __HAL_TIM_GET_COUNTER(&htim17);
+//        		bldc_calculate_rpm(pDriver, start_time, end_time);
+//        	}
 
         	bldc_commutation_step(pDriver, 0);
             break;

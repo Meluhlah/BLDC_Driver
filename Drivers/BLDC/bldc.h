@@ -21,10 +21,11 @@
 
 #define DELAY_TIMER     			htim17		// Used for Creating a rampup delay - Remove
 
-#define ALIGN_STEP_DELAY			(uint8_t)300	// ms
-#define ALIGN_PWM_MAX				(uint8_t)10	// Percentage
-#define ALIGN_PWM_START				(uint8_t)2	// Percentage
-#define ALIGN_PWM_STEP				(uint8_t)1
+#define ALIGN_STEP_DELAY			(uint16_t)30	// Multiplier for 1ms Callback Interrupt
+#define ALIGN_STEPS					(uint16_t)30	// How Many Steps of increment the Align function preforms
+#define ALIGN_PWM_MAX				(uint16_t)15	// Percentage
+#define ALIGN_PWM_START				(uint16_t)2		// Percentage
+#define ALIGN_PWM_INC				(uint16_t)1		// PWM Value Increment
 
 #define RAMP_STEP_DELAY				(uint16_t)350
 #define RAMP_PWM_START				(uint8_t)20

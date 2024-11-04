@@ -32,6 +32,18 @@ void run_app(){
 
 
     while(1){
+    	if(pDriver.motorStatus.state == MOTOR_AUTO_COMMUTATION){
+
+    		if(HAL_GPIO_ReadPin(TOGGLE_SW_GPIO_Port, TOGGLE_SW_Pin)){
+    			float potValue = (float)(pDriver.commutation.potValue);
+    			potValue = (potValue / 4095.f) * 100;
+    			bldc_set_pwm(&pDriver, (uint8_t)potValue);
+    			HAL_GPIO_WritePin(LED_G_GPIO_Port,LED_G_Pin, GPIO_PIN_SET);
+
+    		}
+
+
+    	}
 
 
     }
@@ -62,9 +74,9 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc){
 		pDriver.commutation.iB		 = adc_buffer[3];
 		pDriver.commutation.iC		 = adc_buffer[1];
 		pDriver.commutation.vinRef 	 = (adc_buffer[6]) / 2;
-		pDriver.commutation.tempA	 = adc_buffer[9];
-		pDriver.commutation.tempB	 = adc_buffer[8];
-		pDriver.commutation.tempC	 = adc_buffer[7];
+		pDriver.commutation.tempA	 = (uint16_t)get_temperature(adc_buffer[9]);
+		pDriver.commutation.tempB	 = (uint16_t)get_temperature(adc_buffer[8]);
+		pDriver.commutation.tempC	 = (uint16_t)get_temperature(adc_buffer[7]);
 		pDriver.commutation.potValue = adc_buffer[10];
 		pDriver.commutation.rpmValue = 0;
 
@@ -153,14 +165,17 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
 	if(htim->Instance == TIM14){	// ----- 1ms Interrupt ----- //
 
-		if(bldcAlignCounter > 0)
+		if(bldcAlignCounter == 0){
+			bldc_align_motor_step(&pDriver);
+			bldcAlignCounter = ALIGN_STEP_DELAY;
+		}
+		else
 			bldcAlignCounter--;
-
-		bldc_align_motor_step(&pDriver);
 
 	}
 
-	if(htim->Instance == TIM17){ 	// ----- 1ms Interrupt ----- //
+
+	if(htim->Instance == TIM17){ 	// ----- 10us Interrupt ----- //
     	if(bldcRampCounter > 0){
     		bldcRampCounter--;
     	}

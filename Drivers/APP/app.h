@@ -7,6 +7,8 @@
 #include <string.h>
 #include "adc.h"
 #include "PID.h"
+//#include "AT25128B.h"
+#include "BD1020HFV.h"
 
 
 #define ADC_CHANNELS    				(uint8_t)11
